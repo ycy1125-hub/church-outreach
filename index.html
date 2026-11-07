@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
 <style>
 :root{--bg:#0f1723;--panel:#162234;--panel2:#1c2b41;--line:#2a3b55;--text:#e6edf6;--muted:#8fa3bd;--accent:#3b82f6;
---ver:#22c55e;--prov:#f59e0b;--unv:#94a3b8;--opp:#ef4444}
+--ver:#22c55e;--prov:#f59e0b;--unv:#94a3b8;--opp:#ef4444;--me:#38bdf8}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -21,7 +21,7 @@ header .sub{color:var(--muted);font-size:11px}
 .stat span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 main{display:grid;grid-template-columns:minmax(300px,42%) 1fr;gap:10px;padding:10px;height:calc(100% - 64px)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:0}
-.card h2{font-size:12px;margin:0;padding:8px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.card h2{font-size:12px;margin:0;padding:8px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
 #map{flex:1;border-radius:0 0 10px 10px;min-height:300px}
 .filters{padding:8px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
 .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
@@ -30,8 +30,11 @@ main{display:grid;grid-template-columns:minmax(300px,42%) 1fr;gap:10px;padding:1
 .chip.on{background:var(--accent);border-color:var(--accent)}
 .chip.opp.on{background:var(--opp);border-color:var(--opp)}
 input[type=search]{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px}
+select.sel{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 6px;font-size:12px}
 button.btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px}
 button.btn.primary{background:var(--accent);border-color:var(--accent)}
+button.btn.on{background:var(--me);border-color:var(--me);color:#0f1723}
+.near-note{font-size:11px;color:var(--muted)}
 .tablewrap{flex:1;overflow:auto;min-height:0}
 table{width:100%;border-collapse:collapse}
 th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
@@ -42,6 +45,8 @@ tr:hover td{background:#1f3048;cursor:pointer}
 .b-opp{background:#7f1d1d;color:#fecaca}
 .b-visit{background:#1e3a8a;color:#bfdbfe}
 .muted{color:var(--muted)}
+.dcol{display:none}
+body.has-center .dcol{display:table-cell}
 #status{padding:6px 12px;font-size:11px;color:var(--muted);border-top:1px solid var(--line)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:2000;padding:16px}
 .modal.show{display:flex}
@@ -54,159 +59,247 @@ tr:hover td{background:#1f3048;cursor:pointer}
 .track select,.track input,.track textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px}
 .track textarea{grid-column:1/-1;min-height:70px}
 .leaflet-popup-content{font-size:12px}
-@media (max-width:900px){main{grid-template-columns:1fr;height:auto}#map{height:360px;flex:none}.tablewrap{max-height:70vh}}
+.locbtn{background:#fff;color:#111;border:none;width:34px;height:34px;font-size:18px;line-height:34px;text-align:center;cursor:pointer}
+.locbtn.on{background:var(--me)}
+.me-dot{width:16px;height:16px;border-radius:50%;background:var(--me);border:3px solid #fff;box-shadow:0 0 0 2px rgba(56,189,248,.45)}
+.pick-mode #map{cursor:crosshair}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#0b1220;border:1px solid var(--line);color:var(--text);padding:8px 14px;border-radius:8px;z-index:3000;font-size:12px;display:none;max-width:90vw;text-align:center}
+@media (max-width:900px){
+ header{padding:8px 10px}
+ header h1{font-size:14px}
+ .stat{min-width:54px;padding:3px 6px}
+ main{grid-template-columns:1fr;height:auto;padding:6px;gap:6px}
+ #map{height:58vh;flex:none}
+ .tablewrap{max-height:70vh}
+ .row label{width:auto;margin-right:2px}
+ th,td{padding:7px 6px}
+ .hide-m{display:none}
+ button.btn{padding:7px 12px;font-size:12px}
+ .chip{padding:4px 10px;font-size:12px}
+}
 </style>
 </head>
 <body>
 <header>
-  <div><h1>DARKATEAM Church Outreach Database</h1><div class="sub">Atlanta metro · live from the church database · <span id="asof"></span></div></div>
-  <div class="stats">
-    <div class="stat"><b id="sTotal">–</b><span>Churches</span></div>
-    <div class="stat"><b id="sOpp">–</b><span>Opportunities</span></div>
-    <div class="stat"><b id="sVer">–</b><span>Verified</span></div>
-    <div class="stat"><b id="sVisited">–</b><span>Visited</span></div>
-    <div class="stat"><b id="sFollow">–</b><span>Follow-ups</span></div>
-  </div>
+<div><h1>DARKATEAM Church Outreach Database</h1><div class="sub">Atlanta metro · live from the church database · <span id="asof"></span></div></div>
+<div class="stats">
+<div class="stat"><b id="sTotal">–</b><span>Churches</span></div>
+<div class="stat"><b id="sOpp">–</b><span>Opportunities</span></div>
+<div class="stat"><b id="sVer">–</b><span>Verified</span></div>
+<div class="stat"><b id="sVisited">–</b><span>Visited</span></div>
+<div class="stat"><b id="sFollow">–</b><span>Follow-ups</span></div>
+</div>
 </header>
 <main>
-  <section class="card"><h2>Map <button class="btn" id="fit">Fit to filtered</button></h2><div id="map"></div></section>
-  <section class="card">
-    <h2>Directory <span><button class="btn" id="exportCsv">Export CSV</button> <button class="btn" id="exportTrack">Export my visit notes</button></span></h2>
-    <div class="filters">
-      <div class="row"><input type="search" id="q" placeholder="Search name, address, owner, notes, parcel…"></div>
-      <div class="row"><label>Show</label><span class="chip opp" data-f="opp" data-v="1">Opportunities only</span></div>
-      <div class="row" id="fCounty"><label>County</label></div>
-      <div class="row" id="fTier"><label>Tier</label></div>
-      <div class="row" id="fProp"><label>Property</label></div>
-      <div class="row" id="fVisit"><label>Visit</label></div>
-    </div>
-    <div class="tablewrap"><table><thead><tr>
-      <th data-k="id">ID</th><th data-k="name">Name</th><th data-k="city">City</th><th data-k="tier">Tier</th><th data-k="prop">Property</th><th data-k="acres">Acres</th><th data-k="visit">Visit</th>
-    </tr></thead><tbody id="tb"></tbody></table></div>
-    <div id="status">Loading…</div>
-  </section>
+<section class="card"><h2>Map <span><button class="btn" id="locate" title="Show my location">My location</button> <button class="btn" id="fit">Fit to filtered</button></span></h2><div id="map"></div></section>
+<section class="card">
+<h2>Directory <span><button class="btn" id="exportCsv">Export CSV</button> <button class="btn" id="exportTrack">Export my visit notes</button></span></h2>
+<div class="filters">
+<div class="row"><input type="search" id="q" placeholder="Search name, address, owner, notes, parcel…"></div>
+<div class="row"><label>Near</label>
+<select class="sel" id="radius" title="Radius">
+<option value="0">Any distance</option><option value="1">1 mile</option><option value="2">2 miles</option><option value="3">3 miles</option><option value="5">5 miles</option><option value="10">10 miles</option><option value="15">15 miles</option><option value="25">25 miles</option>
+</select>
+<button class="btn" id="useMe">My location</button>
+<button class="btn" id="pick">Pick point on map</button>
+<button class="btn" id="clearCenter">Clear</button>
+<span class="near-note" id="nearNote"></span>
+</div>
+<div class="row"><label>Show</label><span class="chip opp" data-f="opp" data-v="1">Opportunities only</span></div>
+<div class="row" id="fCounty"><label>County</label></div>
+<div class="row" id="fTier"><label>Tier</label></div>
+<div class="row" id="fProp"><label>Property</label></div>
+<div class="row" id="fVisit"><label>Visit</label></div>
+</div>
+<div class="tablewrap"><table><thead><tr>
+<th data-k="dist" class="dcol">Mi</th><th data-k="id" class="hide-m">ID</th><th data-k="name">Name</th><th data-k="city">City</th><th data-k="tier">Tier</th><th data-k="prop" class="hide-m">Property</th><th data-k="acres" class="hide-m">Acres</th><th data-k="visit">Visit</th>
+</tr></thead><tbody id="tb"></tbody></table></div>
+<div id="status">Loading…</div>
+</section>
 </main>
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
 <script>
 const CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3LxMeNJEhs2yVOdS97Pf_qAwobEsn6pApaEE-NJrMefcF0-jnVSIcSFd3IAZHE3h0veUjNO3gkZPG/pub?gid=679011761&single=true&output=csv';
 const TRACK_KEY='darkateam_visit_tracking_v2';
+const NEAR_KEY='darkateam_near_v1';
 const OPP=new Set(['Closed','Listed','Sold-still-church-use','Sold-converted']);
 const VISIT=['Not contacted','Visited','Follow-up','Not interested','Converted'];
 let rows=[],filters={county:new Set(),tier:new Set(),prop:new Set(),visit:new Set(),opp:false},q='',sortK='id',sortDir=1,markers={};
+let center=null,radiusMi=0,me=null,watchId=null,pickMode=false;
 
 function store(){try{return JSON.parse(localStorage.getItem(TRACK_KEY)||'{}')}catch(e){return {}}}
 function saveStore(s){try{localStorage.setItem(TRACK_KEY,JSON.stringify(s))}catch(e){}}
 let track=store();
 
 function parseCSV(t){const out=[];let row=[],f='',i=0,qt=false;
-  while(i<t.length){const c=t[i];
-    if(qt){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else qt=false}else f+=c}
-    else if(c=='"')qt=true;else if(c==','){row.push(f);f=''}
-    else if(c=='\n'||c=='\r'){if(c=='\r'&&t[i+1]=='\n')i++;row.push(f);out.push(row);row=[];f=''}
-    else f+=c;i++}
-  if(f!==''||row.length){row.push(f);out.push(row)}return out}
+while(i<t.length){const c=t[i];
+if(qt){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else qt=false}else f+=c}
+else if(c=='"')qt=true;else if(c==','){row.push(f);f=''}
+else if(c=='\n'||c=='\r'){if(c=='\r'&&t[i+1]=='\n')i++;row.push(f);out.push(row);row=[];f=''}
+else f+=c;i++}
+if(f!==''||row.length){row.push(f);out.push(row)}return out}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=v=>{const n=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(n)?null:n};
+function toast(msg,ms=3000){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(toast._t);toast._t=setTimeout(()=>t.style.display='none',ms)}
+// distance in miles (haversine)
+function miles(a,b,c,d){const R=3958.8,r=x=>x*Math.PI/180;const dl=r(c-a),dn=r(d-b);const h=Math.sin(dl/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
 
 async function load(){
-  const st=document.getElementById('status');
-  try{
-    const r=await fetch(CSV_URL,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
-    const data=parseCSV(await r.text());const H=data[1].map(h=>h.trim());
-    const ix=h=>H.indexOf(h);const g=(r,h)=>{const k=ix(h);return k<0?'':(r[k]||'').trim()};
-    rows=data.slice(3).filter(r=>g(r,'Church ID')).map(r=>{
-      const o={};H.forEach((h,k)=>o[h]=(r[k]||'').trim());
-      o.id=o['Church ID'];o.name=o['Name'];o.city=o['City'];o.county=o['County'];o.tier=o['Verification Tier']||'Unverified';
-      o.prop=o['Property Status']||'Active';o.acres=num(o['Land Area (AC)']);o.lat=num(o['Latitude']);o.lng=num(o['Longitude']);
-      o.opp=OPP.has(o.prop)||o['Priority']==='A';return o});
-    document.getElementById('asof').textContent='loaded '+new Date().toLocaleString();
-    st.textContent=rows.length+' churches loaded';
-  }catch(e){st.textContent='Could not load the live list ('+e.message+'). Check your connection and reload.';}
-  buildChips();render();fit();
+const st=document.getElementById('status');
+try{
+const r=await fetch(CSV_URL,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
+const data=parseCSV(await r.text());const H=data[1].map(h=>h.trim());
+const ix=h=>H.indexOf(h);const g=(r,h)=>{const k=ix(h);return k<0?'':(r[k]||'').trim()};
+rows=data.slice(3).filter(r=>g(r,'Church ID')).map(r=>{
+const o={};H.forEach((h,k)=>o[h]=(r[k]||'').trim());
+o.id=o['Church ID'];o.name=o['Name'];o.city=o['City'];o.county=o['County'];o.tier=o['Verification Tier']||'Unverified';
+o.prop=o['Property Status']||'Active';o.acres=num(o['Land Area (AC)']);o.lat=num(o['Latitude']);o.lng=num(o['Longitude']);
+o.opp=OPP.has(o.prop)||o['Priority']==='A';return o});
+document.getElementById('asof').textContent='loaded '+new Date().toLocaleString();
+st.textContent=rows.length+' churches loaded';
+}catch(e){st.textContent='Could not load the live list ('+e.message+'). Check your connection and reload.';}
+buildChips();restoreNear();render();if(!center)fit();
 }
 
 function buildChips(){
-  const mk=(id,key,vals)=>{const el=document.getElementById(id);vals.forEach(v=>{const c=document.createElement('span');c.className='chip';c.textContent=v;c.dataset.f=key;c.dataset.v=v;el.appendChild(c)})};
-  mk('fCounty','county',[...new Set(rows.map(r=>r.county).filter(Boolean))].sort());
-  mk('fTier','tier',['Verified','Provisional','Unverified']);
-  mk('fProp','prop',[...new Set(rows.map(r=>r.prop))].sort());
-  mk('fVisit','visit',VISIT);
+const mk=(id,key,vals)=>{const el=document.getElementById(id);vals.forEach(v=>{const c=document.createElement('span');c.className='chip';c.textContent=v;c.dataset.f=key;c.dataset.v=v;el.appendChild(c)})};
+mk('fCounty','county',[...new Set(rows.map(r=>r.county).filter(Boolean))].sort());
+mk('fTier','tier',['Verified','Provisional','Unverified']);
+mk('fProp','prop',[...new Set(rows.map(r=>r.prop))].sort());
+mk('fVisit','visit',VISIT);
 }
 document.addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c)return;
-  const k=c.dataset.f,v=c.dataset.v;
-  if(k==='opp'){filters.opp=!filters.opp;c.classList.toggle('on',filters.opp)}
-  else{const s=filters[k];s.has(v)?s.delete(v):s.add(v);c.classList.toggle('on',s.has(v))}
-  render()});
+const k=c.dataset.f,v=c.dataset.v;
+if(k==='opp'){filters.opp=!filters.opp;c.classList.toggle('on',filters.opp)}
+else{const s=filters[k];s.has(v)?s.delete(v):s.add(v);c.classList.toggle('on',s.has(v))}
+render()});
 document.getElementById('q').addEventListener('input',e=>{q=e.target.value.toLowerCase();render()});
 document.querySelectorAll('th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;sortDir=sortK===k?-sortDir:1;sortK=k;render()}));
 
 const visitOf=r=>(track[r.id]&&track[r.id].status)||'Not contacted';
 function visible(){return rows.filter(r=>{
-  if(filters.opp&&!r.opp)return false;
-  if(filters.county.size&&!filters.county.has(r.county))return false;
-  if(filters.tier.size&&!filters.tier.has(r.tier))return false;
-  if(filters.prop.size&&!filters.prop.has(r.prop))return false;
-  if(filters.visit.size&&!filters.visit.has(visitOf(r)))return false;
-  if(q){const hay=[r.id,r.name,r['Address'],r.city,r['Property Owner'],r['Parcel ID'],r['Notes (research)'],(track[r.id]||{}).notes].join(' ').toLowerCase();if(!hay.includes(q))return false}
-  return true})}
+if(filters.opp&&!r.opp)return false;
+if(filters.county.size&&!filters.county.has(r.county))return false;
+if(filters.tier.size&&!filters.tier.has(r.tier))return false;
+if(filters.prop.size&&!filters.prop.has(r.prop))return false;
+if(filters.visit.size&&!filters.visit.has(visitOf(r)))return false;
+if(center&&radiusMi>0&&(r.dist==null||r.dist>radiusMi))return false;
+if(q){const hay=[r.id,r.name,r['Address'],r.city,r['Property Owner'],r['Parcel ID'],r['Notes (research)'],(track[r.id]||{}).notes].join(' ').toLowerCase();if(!hay.includes(q))return false}
+return true})}
 
-const map=L.map('map',{preferCanvas:true}).setView([33.95,-84.0],9);
+const map=L.map('map',{preferCanvas:true,tap:true}).setView([33.95,-84.0],9);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
 const cluster=L.markerClusterGroup({maxClusterRadius:40});map.addLayer(cluster);
 const color=r=>r.opp?'#ef4444':r.tier==='Verified'?'#22c55e':r.tier==='Provisional'?'#f59e0b':'#94a3b8';
+const nearLayer=L.layerGroup().addTo(map);   // radius circle + center pin
+const meLayer=L.layerGroup().addTo(map);     // GPS dot + accuracy
 
-function render(){
-  const v=visible();
-  const key=r=>sortK==='visit'?visitOf(r):sortK==='acres'?(r.acres??-1):String(r[sortK]||'');
-  v.sort((a,b)=>{const x=key(a),y=key(b);return (x>y?1:x<y?-1:0)*sortDir});
-  document.getElementById('tb').innerHTML=v.map(r=>`<tr data-id="${esc(r.id)}"><td class="muted">${esc(r.id)}</td><td>${esc(r.name||'(unnamed)')}${r.opp?' <span class="badge b-opp">Opportunity</span>':''}</td><td>${esc(r.city)}</td><td><span class="badge b-${esc(r.tier)}">${esc(r.tier)}</span></td><td>${esc(r.prop)}</td><td>${r.acres??''}</td><td>${visitOf(r)!=='Not contacted'?`<span class="badge b-visit">${esc(visitOf(r))}</span>`:'<span class="muted">—</span>'}</td></tr>`).join('');
-  cluster.clearLayers();markers={};
-  v.forEach(r=>{if(r.lat==null||r.lng==null)return;
-    const m=L.circleMarker([r.lat,r.lng],{radius:r.opp?8:6,color:'#0f1723',weight:1,fillColor:color(r),fillOpacity:.95});
-    m.bindPopup(`<b>${esc(r.name)}</b><br>${esc(r['Address'])}, ${esc(r.city)}<br>${esc(r.tier)} · ${esc(r.prop)}<br><a href="#" onclick="openModal('${esc(r.id)}');return false">Details</a>`);
-    cluster.addLayer(m);markers[r.id]=m});
-  const all=rows.length;
-  document.getElementById('sTotal').textContent=all;
-  document.getElementById('sOpp').textContent=rows.filter(r=>r.opp).length;
-  document.getElementById('sVer').textContent=rows.filter(r=>r.tier==='Verified').length;
-  document.getElementById('sVisited').textContent=rows.filter(r=>['Visited','Follow-up','Converted','Not interested'].includes(visitOf(r))).length;
-  document.getElementById('sFollow').textContent=rows.filter(r=>visitOf(r)==='Follow-up').length;
-  if(all)document.getElementById('status').textContent=`Showing ${v.length} of ${all} churches`;
+// Locate button on the map itself (handy on phones)
+const LocCtl=L.Control.extend({options:{position:'topleft'},onAdd(){const b=L.DomUtil.create('button','locbtn leaflet-bar');b.id='locCtl';b.title='Show my location';b.innerHTML='&#8982;';L.DomEvent.on(b,'click',e=>{L.DomEvent.stop(e);toggleGps(true)});return b}});
+map.addControl(new LocCtl());
+
+function setCenter(lat,lng,label,opts={}){
+center={lat,lng,label};
+rows.forEach(r=>{r.dist=(r.lat!=null&&r.lng!=null)?miles(lat,lng,r.lat,r.lng):null});
+document.body.classList.add('has-center');
+if(!opts.keepSort){sortK='dist';sortDir=1}
+saveNear();drawNear();render();
+if(opts.zoom!==false)zoomToNear();
 }
-function fit(){const pts=visible().filter(r=>r.lat!=null).map(r=>[r.lat,r.lng]);if(pts.length)map.fitBounds(pts,{padding:[20,20],maxZoom:14})}
+function clearCenter(){center=null;rows.forEach(r=>r.dist=null);document.body.classList.remove('has-center');if(sortK==='dist')sortK='id';nearLayer.clearLayers();saveNear();render();document.getElementById('nearNote').textContent=''}
+function drawNear(){
+nearLayer.clearLayers();if(!center)return;
+if(center.label!=='My location')L.marker([center.lat,center.lng],{title:'Search center'}).addTo(nearLayer).bindPopup('Search center');
+if(radiusMi>0)L.circle([center.lat,center.lng],{radius:radiusMi*1609.344,color:'#38bdf8',weight:2,fillColor:'#38bdf8',fillOpacity:.07,interactive:false}).addTo(nearLayer);
+}
+function zoomToNear(){if(!center)return;if(radiusMi>0)map.fitBounds(L.latLng(center.lat,center.lng).toBounds(radiusMi*1609.344*2),{padding:[10,10]});else map.setView([center.lat,center.lng],Math.max(map.getZoom(),13))}
+function saveNear(){try{localStorage.setItem(NEAR_KEY,JSON.stringify({radiusMi,center:center&&center.label!=='My location'?center:null}))}catch(e){}}
+function restoreNear(){try{const s=JSON.parse(localStorage.getItem(NEAR_KEY)||'{}');if(s.radiusMi){radiusMi=+s.radiusMi;document.getElementById('radius').value=String(radiusMi)}if(s.center)setCenter(s.center.lat,s.center.lng,s.center.label,{zoom:true})}catch(e){}}
+
+// GPS: watch position while on, show blue dot, use it as the search center
+function toggleGps(forceOn){
+if(watchId!==null&&!forceOn){stopGps();return}
+if(!('geolocation' in navigator)){toast('This browser does not support location.');return}
+if(watchId!==null){if(me)setCenter(me.lat,me.lng,'My location');return}
+toast('Finding your location…',4000);
+let first=true;
+watchId=navigator.geolocation.watchPosition(p=>{
+me={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};
+meLayer.clearLayers();
+L.circle([me.lat,me.lng],{radius:me.acc,color:'#38bdf8',weight:1,fillOpacity:.1,interactive:false}).addTo(meLayer);
+L.marker([me.lat,me.lng],{icon:L.divIcon({className:'',html:'<div class="me-dot"></div>',iconSize:[16,16],iconAnchor:[8,8]}),title:'You are here'}).addTo(meLayer);
+if(first||(center&&center.label==='My location')){setCenter(me.lat,me.lng,'My location',{zoom:first,keepSort:!first});first=false}
+document.getElementById('nearNote').textContent=`You are here (±${Math.round(me.acc)} m)`;
+},err=>{stopGps();toast(err.code===1?'Location permission was denied. Allow location for this site in your phone settings.':'Could not get your location ('+err.message+').',5000)},{enableHighAccuracy:true,maximumAge:15000,timeout:20000});
+setGpsButtons(true);
+}
+function stopGps(){if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;me=null;meLayer.clearLayers();setGpsButtons(false);if(center&&center.label==='My location')clearCenter()}
+function setGpsButtons(on){['useMe','locate'].forEach(id=>document.getElementById(id).classList.toggle('on',on));const c=document.getElementById('locCtl');if(c)c.classList.toggle('on',on)}
+
+document.getElementById('useMe').onclick=()=>toggleGps(false);
+document.getElementById('locate').onclick=()=>toggleGps(false);
+document.getElementById('clearCenter').onclick=()=>{stopGps();clearCenter()};
+document.getElementById('radius').onchange=e=>{radiusMi=+e.target.value;saveNear();drawNear();render();if(center)zoomToNear();else if(radiusMi>0)toast('Now choose a center: tap "My location" or "Pick point on map".',4000)};
+document.getElementById('pick').onclick=()=>{pickMode=!pickMode;document.body.classList.toggle('pick-mode',pickMode);document.getElementById('pick').classList.toggle('on',pickMode);if(pickMode)toast('Tap the map to set the search center.',4000)};
+map.on('click',e=>{if(!pickMode)return;pickMode=false;document.body.classList.remove('pick-mode');document.getElementById('pick').classList.remove('on');stopGps();setCenter(e.latlng.lat,e.latlng.lng,'Picked point')});
+map.on('contextmenu',e=>{stopGps();setCenter(e.latlng.lat,e.latlng.lng,'Picked point');toast('Search center set here.')}); // long-press on phones
+
+const fmtMi=d=>d==null?'':(d<10?d.toFixed(1):Math.round(d));
+function render(){
+const v=visible();
+const key=r=>sortK==='visit'?visitOf(r):sortK==='acres'?(r.acres??-1):sortK==='dist'?(r.dist??1e9):String(r[sortK]||'');
+v.sort((a,b)=>{const x=key(a),y=key(b);return (x>y?1:x<y?-1:0)*sortDir});
+document.getElementById('tb').innerHTML=v.map(r=>`<tr data-id="${esc(r.id)}"><td class="dcol">${fmtMi(r.dist)}</td><td class="muted hide-m">${esc(r.id)}</td><td>${esc(r.name||'(unnamed)')}${r.opp?' <span class="badge b-opp">Opportunity</span>':''}</td><td>${esc(r.city)}</td><td><span class="badge b-${esc(r.tier)}">${esc(r.tier)}</span></td><td class="hide-m">${esc(r.prop)}</td><td class="hide-m">${r.acres??''}</td><td>${visitOf(r)!=='Not contacted'?`<span class="badge b-visit">${esc(visitOf(r))}</span>`:'<span class="muted">—</span>'}</td></tr>`).join('');
+cluster.clearLayers();markers={};
+v.forEach(r=>{if(r.lat==null||r.lng==null)return;
+const m=L.circleMarker([r.lat,r.lng],{radius:r.opp?8:6,color:'#0f1723',weight:1,fillColor:color(r),fillOpacity:.95});
+const dir=`https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`;
+m.bindPopup(`<b>${esc(r.name)}</b><br>${esc(r['Address'])}, ${esc(r.city)}<br>${esc(r.tier)} · ${esc(r.prop)}${r.dist!=null?`<br>${fmtMi(r.dist)} mi away`:''}<br><a href="#" onclick="openModal('${esc(r.id)}');return false">Details</a> · <a href="${dir}" target="_blank" rel="noopener">Directions</a>`);
+cluster.addLayer(m);markers[r.id]=m});
+const all=rows.length;
+document.getElementById('sTotal').textContent=all;
+document.getElementById('sOpp').textContent=rows.filter(r=>r.opp).length;
+document.getElementById('sVer').textContent=rows.filter(r=>r.tier==='Verified').length;
+document.getElementById('sVisited').textContent=rows.filter(r=>['Visited','Follow-up','Converted','Not interested'].includes(visitOf(r))).length;
+document.getElementById('sFollow').textContent=rows.filter(r=>visitOf(r)==='Follow-up').length;
+if(all){let s=`Showing ${v.length} of ${all} churches`;if(center)s+=radiusMi>0?` within ${radiusMi} mi of ${center.label.toLowerCase()}`:` · sorted by distance from ${center.label.toLowerCase()}`;document.getElementById('status').textContent=s}
+}
+function fit(){const pts=visible().filter(r=>r.lat!=null).map(r=>[r.lat,r.lng]);if(center)pts.push([center.lat,center.lng]);if(pts.length)map.fitBounds(pts,{padding:[20,20],maxZoom:14})}
 document.getElementById('fit').onclick=fit;
 document.getElementById('tb').addEventListener('click',e=>{const tr=e.target.closest('tr');if(tr)openModal(tr.dataset.id)});
 
 function link(u){return u?`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`:'<span class="muted">—</span>'}
 function openModal(id){
-  const r=rows.find(x=>x.id===id);if(!r)return;const t=track[id]||{};
-  const f=(label,val)=>`<div><span>${label}</span>${val||'<span class="muted">—</span>'}</div>`;
-  const contacts=[1,2,3].map(n=>[r[`Contact ${n} Name`],r[`Contact ${n} Title`],r[`Contact ${n} Phone`],r[`Contact ${n} Email`]].filter(Boolean).map(esc).join(' · ')).filter(Boolean).join('<br>');
-  document.getElementById('sheet').innerHTML=`
-    <div style="display:flex;justify-content:space-between;gap:8px"><div><h3>${esc(r.name)}</h3><div class="muted">${esc(r.id)} · ${esc(r['Address'])}, ${esc(r.city)}, GA ${esc(r['Zip'])} · ${esc(r.county)} County</div></div><button class="btn" onclick="closeModal()">Close</button></div>
-    <div style="margin-top:6px"><span class="badge b-${esc(r.tier)}">${esc(r.tier)}</span> ${r.opp?'<span class="badge b-opp">Opportunity</span>':''} <span class="muted">Last verified ${esc(r['Last Verified Date'])}</span></div>
-    <div class="grid">
-      ${f('Property status',esc(r.prop))}${f('Location type',esc(r['Location Type']))}${f('Priority',esc(r['Priority']))}
-      ${f('Property owner',esc(r['Property Owner']))}${f('Parcel ID',esc(r['Parcel ID']))}${f('Land area (ac)',esc(r['Land Area (AC)']))}
-      ${f('Building (sf)',esc(r['Space Size (sqft)']))}${f('Last sold',esc([r['Last Sold Date'],r['Sold Price']?('$'+Number(num(r['Sold Price'])).toLocaleString()):''].filter(Boolean).join(' · ')))}${f('Denomination / language',esc([r['Denomination'],r['Language']].filter(Boolean).join(' · ')))}
-      ${f('Service time',esc(r['Service Time']))}${f('Website',link(r['Website']))}${f('Source',link(r['Source URL']))}
-    </div>
-    ${f('Research notes',esc(r['Notes (research)']))}
-    ${contacts?`<div style="margin-top:8px">${f('Contacts',contacts)}</div>`:''}
-    <div style="margin-top:8px"><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((r['Address']||'')+', '+(r.city||'')+', GA')}" target="_blank" rel="noopener">Open in Google Maps</a></div>
-    <div class="track">
-      <div><span class="muted">Visit status</span><select id="tStatus">${VISIT.map(s=>`<option ${s===(t.status||'Not contacted')?'selected':''}>${s}</option>`).join('')}</select></div>
-      <div><span class="muted">Visit date</span><input type="date" id="tVisit" value="${esc(t.visit||'')}"></div>
-      <div><span class="muted">Follow-up date</span><input type="date" id="tFollow" value="${esc(t.follow||'')}"></div>
-      <div><span class="muted">Contact person</span><input id="tContact" value="${esc(t.contact||'')}"></div>
-      <textarea id="tNotes" placeholder="My visit notes (saved in this browser)">${esc(t.notes||'')}</textarea>
-      <div><button class="btn primary" onclick="saveTrack('${esc(r.id)}')">Save my notes</button></div>
-    </div>`;
-  document.getElementById('modal').classList.add('show');
-  if(markers[id]&&r.lat!=null){map.setView([r.lat,r.lng],Math.max(map.getZoom(),14))}
+const r=rows.find(x=>x.id===id);if(!r)return;const t=track[id]||{};
+const f=(label,val)=>`<div><span>${label}</span>${val||'<span class="muted">—</span>'}</div>`;
+const contacts=[1,2,3].map(n=>[r[`Contact ${n} Name`],r[`Contact ${n} Title`],r[`Contact ${n} Phone`],r[`Contact ${n} Email`]].filter(Boolean).map(esc).join(' · ')).filter(Boolean).join('<br>');
+const dir=r.lat!=null?`https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`:`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((r['Address']||'')+', '+(r.city||'')+', GA')}`;
+document.getElementById('sheet').innerHTML=`
+<div style="display:flex;justify-content:space-between;gap:8px"><div><h3>${esc(r.name)}</h3><div class="muted">${esc(r.id)} · ${esc(r['Address'])}, ${esc(r.city)}, GA ${esc(r['Zip'])} · ${esc(r.county)} County${r.dist!=null?` · ${fmtMi(r.dist)} mi away`:''}</div></div><button class="btn" onclick="closeModal()">Close</button></div>
+<div style="margin-top:6px"><span class="badge b-${esc(r.tier)}">${esc(r.tier)}</span> ${r.opp?'<span class="badge b-opp">Opportunity</span>':''} <span class="muted">Last verified ${esc(r['Last Verified Date'])}</span></div>
+<div class="grid">
+${f('Property status',esc(r.prop))}${f('Location type',esc(r['Location Type']))}${f('Priority',esc(r['Priority']))}
+${f('Property owner',esc(r['Property Owner']))}${f('Parcel ID',esc(r['Parcel ID']))}${f('Land area (ac)',esc(r['Land Area (AC)']))}
+${f('Building (sf)',esc(r['Space Size (sqft)']))}${f('Last sold',esc([r['Last Sold Date'],r['Sold Price']?('$'+Number(num(r['Sold Price'])).toLocaleString()):''].filter(Boolean).join(' · ')))}${f('Denomination / language',esc([r['Denomination'],r['Language']].filter(Boolean).join(' · ')))}
+${f('Service time',esc(r['Service Time']))}${f('Website',link(r['Website']))}${f('Source',link(r['Source URL']))}
+</div>
+${f('Research notes',esc(r['Notes (research)']))}
+${contacts?`<div style="margin-top:8px">${f('Contacts',contacts)}</div>`:''}
+<div style="margin-top:8px"><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((r['Address']||'')+', '+(r.city||'')+', GA')}" target="_blank" rel="noopener">Open in Google Maps</a> · <a href="${dir}" target="_blank" rel="noopener">Directions</a>${r.lat!=null?` · <a href="#" onclick="closeModal();setCenter(${r.lat},${r.lng},'${esc(r.name).replace(/'/g,'')}');return false">Find churches near here</a>`:''}</div>
+<div class="track">
+<div><span class="muted">Visit status</span><select id="tStatus">${VISIT.map(s=>`<option ${s===(t.status||'Not contacted')?'selected':''}>${s}</option>`).join('')}</select></div>
+<div><span class="muted">Visit date</span><input type="date" id="tVisit" value="${esc(t.visit||'')}"></div>
+<div><span class="muted">Follow-up date</span><input type="date" id="tFollow" value="${esc(t.follow||'')}"></div>
+<div><span class="muted">Contact person</span><input id="tContact" value="${esc(t.contact||'')}"></div>
+<textarea id="tNotes" placeholder="My visit notes (saved in this browser)">${esc(t.notes||'')}</textarea>
+<div><button class="btn primary" onclick="saveTrack('${esc(r.id)}')">Save my notes</button></div>
+</div>`;
+document.getElementById('modal').classList.add('show');
+if(markers[id]&&r.lat!=null){map.setView([r.lat,r.lng],Math.max(map.getZoom(),14))}
 }
 function closeModal(){document.getElementById('modal').classList.remove('show')}
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
@@ -215,7 +308,8 @@ function saveTrack(id){track[id]={status:document.getElementById('tStatus').valu
 function download(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/csv'}));a.download=name;a.click()}
 const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
 document.getElementById('exportCsv').onclick=()=>{const v=visible();const cols=['Church ID','Name','Address','City','County','Zip','Verification Tier','Property Status','Priority','Property Owner','Parcel ID','Land Area (AC)','Website','Latitude','Longitude'];
-  download('churches.csv',[cols.concat(['My visit status','My follow-up','My notes']).map(csvCell).join(',')].concat(v.map(r=>cols.map(c=>csvCell(r[c])).concat([visitOf(r),(track[r.id]||{}).follow,(track[r.id]||{}).notes].map(csvCell)).join(','))).join('\n'))};
+const extra=center?['Miles from center']:[];
+download('churches.csv',[cols.concat(extra,['My visit status','My follow-up','My notes']).map(csvCell).join(',')].concat(v.map(r=>cols.map(c=>csvCell(r[c])).concat(center?[csvCell(fmtMi(r.dist))]:[]).concat([visitOf(r),(track[r.id]||{}).follow,(track[r.id]||{}).notes].map(csvCell)).join(','))).join('\n'))};
 document.getElementById('exportTrack').onclick=()=>{download('my-visit-notes.csv',['Church ID,Name,Status,Visit date,Follow-up,Contact,Notes,Updated'].concat(Object.entries(track).map(([id,t])=>[id,(rows.find(r=>r.id===id)||{}).name,t.status,t.visit,t.follow,t.contact,t.notes,t.updated].map(csvCell).join(','))).join('\n'))};
 load();
 </script>
