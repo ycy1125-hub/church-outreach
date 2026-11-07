@@ -20,7 +20,7 @@ header .sub{color:var(--muted);font-size:11px}
 .stat b{display:block;font-size:15px}
 .stat span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 main{display:grid;grid-template-columns:minmax(300px,42%) 1fr;gap:10px;padding:10px;height:calc(100% - 64px)}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:0}
+.card{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:0}
 .card h2{font-size:12px;margin:0;padding:8px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap}
 #map{flex:1;border-radius:0 0 10px 10px;min-height:300px}
 .filters{padding:8px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
@@ -46,6 +46,12 @@ tr:hover td{background:#1f3048;cursor:pointer}
 .b-visit{background:#1e3a8a;color:#bfdbfe}
 .muted{color:var(--muted)}
 .dcol{display:none}
+.scol{display:none;white-space:nowrap}
+body.has-scol .scol{display:table-cell}
+th.sorted{color:var(--text)}
+th.sorted::after{content:' \25B2';font-size:9px}
+th.sorted.desc::after{content:' \25BC'}
+#sortDir{min-width:44px}
 body.has-center .dcol{display:table-cell}
 #status{padding:6px 12px;font-size:11px;color:var(--muted);border-top:1px solid var(--line)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:2000;padding:16px}
@@ -105,6 +111,25 @@ body.has-center .dcol{display:table-cell}
 <button class="btn" id="clearCenter">Clear</button>
 <span class="near-note" id="nearNote"></span>
 </div>
+<div class="row"><label>Sort</label>
+<select class="sel" id="sortBy" title="Sort by">
+<option value="id">Church ID</option>
+<option value="name">Name (A–Z)</option>
+<option value="city">City (A–Z)</option>
+<option value="dist">Distance (nearest)</option>
+<option value="updated">Last updated (database)</option>
+<option value="lastVisit">Last visit</option>
+<option value="myEdit">My latest notes</option>
+<option value="follow">Follow-up date</option>
+<option value="discovered">Date added</option>
+<option value="sold">Last sold date</option>
+<option value="price">Sold price</option>
+<option value="acres">Acres</option>
+<option value="tier">Tier</option>
+<option value="visit">Visit status</option>
+</select>
+<button class="btn" id="sortDir" title="Reverse order">↑</button>
+</div>
 <div class="row"><label>Show</label><span class="chip opp" data-f="opp" data-v="1">Opportunities only</span></div>
 <div class="row" id="fCounty"><label>County</label></div>
 <div class="row" id="fTier"><label>Tier</label></div>
@@ -112,7 +137,7 @@ body.has-center .dcol{display:table-cell}
 <div class="row" id="fVisit"><label>Visit</label></div>
 </div>
 <div class="tablewrap"><table><thead><tr>
-<th data-k="dist" class="dcol">Mi</th><th data-k="id" class="hide-m">ID</th><th data-k="name">Name</th><th data-k="city">City</th><th data-k="tier">Tier</th><th data-k="prop" class="hide-m">Property</th><th data-k="acres" class="hide-m">Acres</th><th data-k="visit">Visit</th>
+<th data-k="dist" class="dcol">Mi</th><th data-k="id" class="hide-m">ID</th><th data-k="name">Name</th><th data-k="city">City</th><th data-k="sv" class="scol" id="scolH"></th><th data-k="tier">Tier</th><th data-k="prop" class="hide-m">Property</th><th data-k="acres" class="hide-m">Acres</th><th data-k="visit">Visit</th>
 </tr></thead><tbody id="tb"></tbody></table></div>
 <div id="status">Loading…</div>
 </section>
@@ -162,7 +187,7 @@ o.opp=OPP.has(o.prop)||o['Priority']==='A';return o});
 document.getElementById('asof').textContent='loaded '+new Date().toLocaleString();
 st.textContent=rows.length+' churches loaded';
 }catch(e){st.textContent='Could not load the live list ('+e.message+'). Check your connection and reload.';}
-buildChips();restoreNear();render();if(!center)fit();
+buildChips();restoreSort();restoreNear();render();if(!center)fit();
 }
 
 function buildChips(){
@@ -178,9 +203,38 @@ if(k==='opp'){filters.opp=!filters.opp;c.classList.toggle('on',filters.opp)}
 else{const s=filters[k];s.has(v)?s.delete(v):s.add(v);c.classList.toggle('on',s.has(v))}
 render()});
 document.getElementById('q').addEventListener('input',e=>{q=e.target.value.toLowerCase();render()});
-document.querySelectorAll('th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;sortDir=sortK===k?-sortDir:1;sortK=k;render()}));
+document.querySelectorAll('th').forEach(th=>th.addEventListener('click',()=>setSort(th.dataset.k)));
 
 const visitOf=r=>(track[r.id]&&track[r.id].status)||'Not contacted';
+// ---- sorting ----
+const SORT_KEY='darkateam_sort_v1';
+const toTime=v=>{if(!v)return null;const s=String(v).trim();if(!s)return null;let m=s.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?/);if(m)return Date.UTC(+m[1],+m[2]-1,+(m[3]||1));m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);if(m){let y=+m[3];if(y<100)y+=2000;return Date.UTC(y,+m[1]-1,+m[2])}const t=Date.parse(s);return isNaN(t)?null:t};
+const maxT=(...a)=>{const t=a.map(toTime).filter(x=>x!=null);return t.length?Math.max(...t):null};
+const fmtD=t=>t==null?'':new Date(t).toISOString().slice(0,10);
+// label, value getter, default direction (1 = ascending), kind of column to show
+const SORTS={
+ id:{label:'ID',get:r=>r.id,dir:1},
+ name:{label:'Name',get:r=>(r.name||'').toLowerCase(),dir:1},
+ city:{label:'City',get:r=>(r.city||'').toLowerCase(),dir:1},
+ dist:{label:'Mi',get:r=>r.dist,dir:1},
+ updated:{label:'Updated',get:r=>maxT(r['Last Verified Date'],r['Activity Verified Date'],r['Property Verified Date'],r['Contact Verified Date']),dir:-1,show:fmtD},
+ lastVisit:{label:'Visited',get:r=>maxT((track[r.id]||{}).visit,r['Visit Date']),dir:-1,show:fmtD},
+ myEdit:{label:'Notes',get:r=>toTime((track[r.id]||{}).updated),dir:-1,show:fmtD},
+ follow:{label:'Follow-up',get:r=>maxT((track[r.id]||{}).follow,r['Follow-up Date']),dir:1,show:fmtD},
+ discovered:{label:'Added',get:r=>toTime(r['Date First Discovered']),dir:-1,show:fmtD},
+ sold:{label:'Sold',get:r=>toTime(r['Last Sold Date']),dir:-1,show:fmtD},
+ price:{label:'Price',get:r=>num(r['Sold Price']),dir:-1,show:v=>v==null?'':'$'+(v>=1e6?(v/1e6).toFixed(2)+'M':Math.round(v/1e3)+'K')},
+ acres:{label:'Acres',get:r=>r.acres,dir:-1},
+ tier:{label:'Tier',get:r=>({Verified:0,Provisional:1,Unverified:2})[r.tier]??3,dir:1},
+ visit:{label:'Visit',get:r=>VISIT.indexOf(visitOf(r)),dir:-1},
+ prop:{label:'Property',get:r=>r.prop,dir:1},
+ sv:null};
+function setSort(k,dir){if(k==='sv')k=sortK;if(!SORTS[k])k='id';if(k==='dist'&&!center){toast('Set a center first: "My location" or "Pick point on map".');return}
+sortDir=dir??(sortK===k?-sortDir:SORTS[k].dir);sortK=k;saveSort();render()}
+function saveSort(){try{localStorage.setItem(SORT_KEY,JSON.stringify({k:sortK,d:sortDir}))}catch(e){}}
+function restoreSort(){try{const s=JSON.parse(localStorage.getItem(SORT_KEY)||'null');if(s&&SORTS[s.k]&&s.k!=='dist'){sortK=s.k;sortDir=s.d===-1?-1:1}}catch(e){}}
+document.getElementById('sortBy').onchange=e=>setSort(e.target.value,SORTS[e.target.value]?SORTS[e.target.value].dir:1);
+document.getElementById('sortDir').onclick=()=>setSort(sortK,-sortDir);
 function visible(){return rows.filter(r=>{
 if(filters.opp&&!r.opp)return false;
 if(filters.county.size&&!filters.county.has(r.county))return false;
@@ -206,11 +260,11 @@ function setCenter(lat,lng,label,opts={}){
 center={lat,lng,label};
 rows.forEach(r=>{r.dist=(r.lat!=null&&r.lng!=null)?miles(lat,lng,r.lat,r.lng):null});
 document.body.classList.add('has-center');
-if(!opts.keepSort){sortK='dist';sortDir=1}
+if(!opts.keepSort){sortK='dist';sortDir=1;saveSort()}
 saveNear();drawNear();render();
 if(opts.zoom!==false)zoomToNear();
 }
-function clearCenter(){center=null;rows.forEach(r=>r.dist=null);document.body.classList.remove('has-center');if(sortK==='dist')sortK='id';nearLayer.clearLayers();saveNear();render();document.getElementById('nearNote').textContent=''}
+function clearCenter(){center=null;rows.forEach(r=>r.dist=null);document.body.classList.remove('has-center');if(sortK==='dist'){sortK='id';sortDir=1;saveSort()}nearLayer.clearLayers();saveNear();render();document.getElementById('nearNote').textContent=''}
 function drawNear(){
 nearLayer.clearLayers();if(!center)return;
 if(center.label!=='My location')L.marker([center.lat,center.lng],{title:'Search center'}).addTo(nearLayer).bindPopup('Search center');
@@ -251,9 +305,15 @@ map.on('contextmenu',e=>{stopGps();setCenter(e.latlng.lat,e.latlng.lng,'Picked p
 const fmtMi=d=>d==null?'':(d<10?d.toFixed(1):Math.round(d));
 function render(){
 const v=visible();
-const key=r=>sortK==='visit'?visitOf(r):sortK==='acres'?(r.acres??-1):sortK==='dist'?(r.dist??1e9):String(r[sortK]||'');
-v.sort((a,b)=>{const x=key(a),y=key(b);return (x>y?1:x<y?-1:0)*sortDir});
-document.getElementById('tb').innerHTML=v.map(r=>`<tr data-id="${esc(r.id)}"><td class="dcol">${fmtMi(r.dist)}</td><td class="muted hide-m">${esc(r.id)}</td><td>${esc(r.name||'(unnamed)')}${r.opp?' <span class="badge b-opp">Opportunity</span>':''}</td><td>${esc(r.city)}</td><td><span class="badge b-${esc(r.tier)}">${esc(r.tier)}</span></td><td class="hide-m">${esc(r.prop)}</td><td class="hide-m">${r.acres??''}</td><td>${visitOf(r)!=='Not contacted'?`<span class="badge b-visit">${esc(visitOf(r))}</span>`:'<span class="muted">—</span>'}</td></tr>`).join('');
+const S=SORTS[sortK]||SORTS.id,blank=x=>x==null||x===''||(typeof x==='number'&&isNaN(x));
+const kv=new Map(v.map(r=>[r,S.get(r)]));
+// blanks always go to the bottom, whichever direction
+v.sort((a,b)=>{const x=kv.get(a),y=kv.get(b),bx=blank(x),by=blank(y);if(bx||by)return bx===by?0:bx?1:-1;return (x>y?1:x<y?-1:0)*sortDir});
+document.getElementById('sortBy').value=sortK;document.getElementById('sortDir').textContent=sortDir===1?'↑':'↓';
+document.body.classList.toggle('has-scol',!!S.show);document.getElementById('scolH').textContent=S.show?S.label:'';
+document.querySelectorAll('th').forEach(th=>{const on=th.dataset.k===sortK||(th.dataset.k==='sv'&&!!S.show);th.classList.toggle('sorted',on);th.classList.toggle('desc',on&&sortDir===-1)});
+const sval=r=>S.show?esc(S.show(kv.get(r))):'';
+document.getElementById('tb').innerHTML=v.map(r=>`<tr data-id="${esc(r.id)}"><td class="dcol">${fmtMi(r.dist)}</td><td class="muted hide-m">${esc(r.id)}</td><td>${esc(r.name||'(unnamed)')}${r.opp?' <span class="badge b-opp">Opportunity</span>':''}</td><td>${esc(r.city)}</td><td class="scol muted">${sval(r)}</td><td><span class="badge b-${esc(r.tier)}">${esc(r.tier)}</span></td><td class="hide-m">${esc(r.prop)}</td><td class="hide-m">${r.acres??''}</td><td>${visitOf(r)!=='Not contacted'?`<span class="badge b-visit">${esc(visitOf(r))}</span>`:'<span class="muted">—</span>'}</td></tr>`).join('');
 cluster.clearLayers();markers={};
 v.forEach(r=>{if(r.lat==null||r.lng==null)return;
 const m=L.circleMarker([r.lat,r.lng],{radius:r.opp?8:6,color:'#0f1723',weight:1,fillColor:color(r),fillOpacity:.95});
@@ -266,7 +326,7 @@ document.getElementById('sOpp').textContent=rows.filter(r=>r.opp).length;
 document.getElementById('sVer').textContent=rows.filter(r=>r.tier==='Verified').length;
 document.getElementById('sVisited').textContent=rows.filter(r=>['Visited','Follow-up','Converted','Not interested'].includes(visitOf(r))).length;
 document.getElementById('sFollow').textContent=rows.filter(r=>visitOf(r)==='Follow-up').length;
-if(all){let s=`Showing ${v.length} of ${all} churches`;if(center)s+=radiusMi>0?` within ${radiusMi} mi of ${center.label.toLowerCase()}`:` · sorted by distance from ${center.label.toLowerCase()}`;document.getElementById('status').textContent=s}
+if(all){let s=`Showing ${v.length} of ${all} churches`;if(center)s+=radiusMi>0?` within ${radiusMi} mi of ${center.label.toLowerCase()}`:` · sorted by distance from ${center.label.toLowerCase()}`;if(sortK!=='dist'&&sortK!=='id'){const n=v.filter(r=>!blank(kv.get(r))).length;s+=` · sorted by ${document.querySelector('#sortBy option[value="'+sortK+'"]').textContent.toLowerCase()}`+(n<v.length?` (${v.length-n} with no date/value at the end)`:'')};document.getElementById('status').textContent=s}
 }
 function fit(){const pts=visible().filter(r=>r.lat!=null).map(r=>[r.lat,r.lng]);if(center)pts.push([center.lat,center.lng]);if(pts.length)map.fitBounds(pts,{padding:[20,20],maxZoom:14})}
 document.getElementById('fit').onclick=fit;
